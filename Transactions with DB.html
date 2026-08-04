@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Transaction's Reconciliation</title>
+<link rel="icon" href="data:,">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Inter',sans-serif; background:#1C1C1E; color:#E8E8E8; padding-bottom:60px; }
+  .mono { font-family:'IBM Plex Mono',monospace; }
+  header { background:#2A2A2C; border-bottom:1px solid #3D3D40; padding:16px 20px; position:sticky; top:0; z-index:10; }
+  .header-row { display:flex; justify-content:space-between; align-items:flex-start; }
+  .eyebrow { font-size:10px; text-transform:uppercase; letter-spacing:0.2em; color:#B8860B; }
+  .title { font-size:18px; font-weight:600; }
+  .sync-badge { font-size:10px; color:#9A9A9E; background:#1C1C1E; border:1px solid #3D3D40; padding:4px 8px; border-radius:20px; white-space:nowrap; }
+  .sync-badge.pending { color:#C9A227; border-color:#4A3D1A; }
+  .wrap { padding:16px; }
+  .card { background:#2A2A2C; border:1px solid #3D3D40; border-radius:10px; padding:14px; margin-bottom:14px; cursor:pointer; }
+  .card-out { background:#333336; border:1px solid #48484B; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .label { font-size:10px; text-transform:uppercase; color:#9A9A9E; margin-bottom:6px; }
+  input, select { width:100%; background:#1C1C1E; border:1px solid #3D3D40; border-radius:6px; padding:9px 10px; font-size:14px; color:#E8E8E8; margin-bottom:8px; }
+  input::placeholder { color:#6E6E72; }
+  .row { display:flex; gap:8px; }
+  .row > * { flex:1; margin-bottom:8px; }
+  button { border:none; border-radius:6px; font-size:14px; cursor:pointer; font-family:inherit; }
+  .btn-primary { background:#B8860B; color:#1C1C1E; font-weight:600; padding:11px; width:100%; }
+  .btn-buy { background:#4A7A4E; color:white; padding:8px; width:100%; }
+  .btn-ghost { background:#3D3D40; color:#E8E8E8; padding:8px; width:100%; }
+  .btn-danger { background:#4A2C2C; color:#E8A0A0; padding:8px; width:100%; }
+  .btn-sm { padding:6px; font-size:12px; flex:1; }
+  .btn-icon { background:none; color:#6E6E72; padding:4px; }
+  .btn-icon:hover { color:#D06666; }
+  .chip { display:inline-block; background:#3D3D40; font-size:11px; padding:4px 8px; border-radius:5px; margin:0 6px 6px 0; }
+  .stat-val { font-size:20px; font-weight:600; margin-top:4px; }
+  .small { font-size:11px; color:#9A9A9E; }
+  .italic { font-style:italic; }
+  .err { color:#D06666; font-size:12px; margin-bottom:8px; }
+  .ok-banner { display:flex; align-items:center; gap:8px; background:#333336; border:1px solid #48484B; color:#7CB87F; padding:10px 12px; border-radius:8px; margin-bottom:14px; font-size:14px; }
+  .settle-box { margin-top:10px; padding-top:10px; border-top:1px solid #48484B; }
+  .preview { font-size:11px; background:#1C1C1E; border:1px solid #3D3D40; border-radius:6px; padding:8px; margin-bottom:8px; }
+  .warn { color:#D06666; }
+  .owe { color:#C9A227; }
+  .neutral { color:#9A9A9E; }
+  .empty { text-align:center; color:#6E6E72; font-size:14px; padding:24px; border:1px dashed #3D3D40; border-radius:10px; }
+  .flex-between { display:flex; justify-content:space-between; align-items:flex-start; }
+  select { -webkit-appearance:none; }
+  .no-tap { cursor:default; }
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:50; align-items:flex-end; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal-sheet { background:#2A2A2C; border-top:1px solid #48484B; border-radius:16px 16px 0 0; width:100%; max-width:480px; max-height:80vh; overflow-y:auto; padding:20px; }
+  .modal-title { font-size:16px; font-weight:600; margin-bottom:2px; }
+  .modal-close { position:sticky; top:0; float:right; background:#3D3D40; color:#E8E8E8; width:28px; height:28px; border-radius:50%; font-size:16px; line-height:28px; text-align:center; }
+  .detail-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #333336; font-size:13px; }
+  .detail-row:last-child { border-bottom:none; }
+  .detail-label { color:#9A9A9E; }
+  .detail-val { text-align:right; }
+  .detail-section-label { font-size:10px; text-transform:uppercase; color:#6E6E72; letter-spacing:0.1em; margin:14px 0 4px; }
+  .status-pill { display:inline-block; font-size:10px; text-transform:uppercase; padding:3px 8px; border-radius:20px; margin-bottom:10px; margin-right:6px; }
+  .status-out { background:#48484B; color:#E8E8E8; }
+  .status-settled { background:#3D5A3F; color:#9BD99E; }
+  .status-pending { background:#4A3D1A; color:#C9A227; }
+  .status-synced { background:#2E4A3D; color:#7CB87F; }
+  .tabbar { display:flex; background:#242426; border-bottom:1px solid #3D3D40; position:sticky; top:65px; z-index:9; }
+  .tab-btn { flex:1; background:none; color:#9A9A9E; padding:12px; font-size:13px; font-weight:500; border-bottom:2px solid transparent; border-radius:0; }
+  .tab-btn.active { color:#E8E8E8; border-bottom:2px solid #B8860B; }
+  .filterbar { display:flex; gap:6px; margin-bottom:14px; overflow-x:auto; }
+  .filter-btn { background:#2A2A2C; color:#9A9A9E; border:1px solid #3D3D40; padding:7px 12px; font-size:12px; white-space:nowrap; border-radius:20px; }
+  .filter-btn.active { background:#B8860B; color:#1C1C1E; border-color:#B8860B; font-weight:600; }
+  .report-row { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid #333336; font-size:13px; }
+  .report-row:last-child { border-bottom:none; }
+  .report-sub { color:#9A9A9E; font-size:11px; }
+  .loading-screen { text-align:center; padding:60px 20px; color:#6E6E72; font-size:14px; }
+  .migrate-banner { display:flex; align-items:center; gap:8px; background:#1F2E3D; border:1px solid #2E4A5D; color:#7FB0D9; padding:10px 12px; border-radius:8px; margin-bottom:14px; font-size:13px; }
+  .file-input-label { display:block; background:#3D3D40; color:#E8E8E8; padding:9px 10px; border-radius:6px; text-align:center; font-size:13px; cursor:pointer; margin-bottom:8px; }
+  input[type="file"] { display:none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <div>
+      <div class="eyebrow">FX Field Ledger</div>
+      <div class="title">Transaction's Reconciliation</div>
+    </div>
+    <div class="sync-badge" id="syncBadge">local db loading…</div>
+  </div>
+</header>
+
+<div class="tabbar">
+  <button class="tab-btn active" id="tab_ledger" onclick="switchTab('ledger')">Ledger</button>
+  <button class="tab-btn" id="tab_report" onclick="switchTab('report')">Report</button>
+</div>
+
+<div class="wrap" id="ledgerView">
+  <div class="loading-screen" id="loadingScreen">Opening local database…</div>
+
+  <div id="ledgerContent" style="display:none;">
+
+  <div id="migrateBanner"></div>
+
+  <div class="grid2">
+    <div class="card no-tap">
+      <div class="label">UGX collected today</div>
+      <div class="stat-val mono" id="totalUgx">0</div>
+    </div>
+    <div class="card no-tap">
+      <div class="label">Trips out</div>
+      <div class="stat-val mono" id="tripsOut">0</div>
+    </div>
+  </div>
+
+  <div id="outstandingChips"></div>
+
+  <div class="card no-tap">
+    <div class="label">Dispatch — Sending Out</div>
+    <input id="d_teller" placeholder="teller name">
+    <select id="d_purpose" onchange="updatePurposeFields()">
+      <option value="sale">Sell FX to customer</option>
+      <option value="deposit">Collect UGX deposit</option>
+      <option value="assist">Assist colleague — transport cash in</option>
+    </select>
+
+    <div id="saleFields">
+      <div class="row">
+        <select id="d_currency">
+          <option>USD</option><option>EUR</option><option>GBP</option><option>KES</option>
+        </select>
+        <input id="d_amount" type="text" inputmode="decimal" placeholder="amount taken" oninput="formatWithCommas(this); updateExpectedPreview()">
+      </div>
+      <div class="row">
+        <input id="d_swap" type="text" inputmode="decimal" placeholder="swap buffer (optional)" oninput="formatWithCommas(this); updateExpectedPreview()">
+        <input id="d_rate" type="text" inputmode="decimal" placeholder="agreed rate" oninput="formatWithCommas(this); updateExpectedPreview()">
+      </div>
+    </div>
+
+    <div id="otherFields" style="display:none;">
+      <div class="row">
+        <input id="d_expected_amount" type="text" inputmode="decimal" placeholder="expected amount (optional)" oninput="formatWithCommas(this); updateExpectedPreview()">
+        <select id="d_expected_currency">
+          <option>UGX</option><option>USD</option><option>EUR</option><option>GBP</option><option>KES</option>
+        </select>
+      </div>
+    </div>
+
+    <input id="d_customer" placeholder="customer / colleague name">
+    <div class="preview" id="d_expected_preview" style="display:none;"></div>
+    <div class="err" id="d_error" style="display:none;"></div>
+    <button class="btn-primary" onclick="startTrip()">Record Dispatch — Set Off Now</button>
+  </div>
+
+  <div class="ok-banner" id="okBanner" style="display:none;">✓ Trip recorded — see "Out With Teller" below to mark it returned.</div>
+
+  <div id="outSection"></div>
+
+  <div>
+    <div class="label" style="margin-bottom:8px;">Settled Today</div>
+    <div id="settledSection"></div>
+  </div>
+
+  </div>
+</div>
+
+<div class="wrap" id="reportView" style="display:none;">
+  <div class="filterbar">
+    <button class="filter-btn active" onclick="setReportFilter('today', this)">Today</button>
+    <button class="filter-btn" onclick="setReportFilter('7d', this)">7 Days</button>
+    <button class="filter-btn" onclick="setReportFilter('30d', this)">30 Days</button>
+    <button class="filter-btn" onclick="setReportFilter('all', this)">All Time</button>
+  </div>
+
+  <div class="grid2">
+    <div class="card no-tap">
+      <div class="label">UGX collected</div>
+      <div class="stat-val mono" id="r_totalUgx">0</div>
+    </div>
+    <div class="card no-tap">
+      <div class="label">Transactions</div>
+      <div class="stat-val mono" id="r_totalTxns">0</div>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card no-tap">
+      <div class="label">Currently out</div>
+      <div class="stat-val mono" id="r_currentlyOut">0</div>
+    </div>
+    <div class="card no-tap">
+      <div class="label">Outstanding UGX (all time)</div>
+      <div class="stat-val mono owe" id="r_outstanding">0</div>
+    </div>
+  </div>
+
+  <div class="card no-tap">
+    <div class="label" style="margin-bottom:10px;">By Purpose</div>
+    <div id="r_byPurpose"></div>
+  </div>
+
+  <div class="card no-tap">
+    <div class="label" style="margin-bottom:10px;">By Currency (sales)</div>
+    <div id="r_byCurrency"></div>
+  </div>
+
+  <div class="card no-tap">
+    <div class="label" style="margin-bottom:10px;">By Teller</div>
+    <div id="r_byTeller"></div>
+  </div>
+
+  <div class="card no-tap">
+    <div class="label" style="margin-bottom:10px;">Local Database</div>
+    <div class="detail-row"><span class="detail-label">Records stored</span><span class="detail-val mono" id="r_dbCount">0</span></div>
+    <div class="detail-row"><span class="detail-label">Pending sync</span><span class="detail-val mono owe" id="r_dbPending">0</span></div>
+    <div class="detail-row"><span class="detail-label">Device ID</span><span class="detail-val mono small" id="r_deviceId">—</span></div>
+    <div class="small" style="margin-top:10px;">No cloud connection is configured yet — everything above is stored only on this device. Pending sync counts records ready to upload once a server is connected.</div>
+  </div>
+
+  <div class="card no-tap">
+    <div class="label" style="margin-bottom:10px;">Backup</div>
+    <div class="small" style="margin-bottom:10px;">Export a full copy of every record to a file you can keep safe or move to another device. Restoring merges records in — it won't erase what's already here.</div>
+    <button class="btn-ghost" onclick="exportBackup()">Export Backup (.json)</button>
+    <label class="file-input-label" for="importFile" style="margin-top:8px;">Restore from Backup File</label>
+    <input type="file" id="importFile" accept="application/json" onchange="importBackup(event)">
+    <div class="small" id="backupStatus"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="detailModal" onclick="if(event.target===this) closeDetail()">
+  <div class="modal-sheet" id="detailContent"></div>
+</div>
+
+<script>
+/*
+  LOCAL DATABASE LAYER (Phase 1)
+  --------------------------------
+  Replaces localStorage with IndexedDB — a real embedded database built for
+  structured records and larger volumes. Every transaction record carries
+  sync-ready metadata (id, created_at, updated_at, deleted_at, version,
+  sync_status, device_id) even though no cloud backend is connected yet.
+  This is the foundation Phase 2 (cloud sync) will build on.
+
+  Stores:
+    trips       - every dispatch/settlement record (soft-deleted, never hard-removed)
+    sync_queue  - an outbox log of every create/update/delete, ready for
+                  Phase 2 to replay against a server
+*/
+const DB_NAME = 'fx_ledger_db';
+const DB_VERSION = 1;
+const STORE_TRIPS = 'trips';
+const STORE_SYNC_QUEUE = 'sync_queue';
+const OLD_STORAGE_KEY = 'fx_dispatch_trips_v1'; // legacy localStorage key, migrated on first load
+
+let trips = [];
+let dbInstance = null;
+let settlingId = null;
+let collectingId = null;
+let editingId = null;
+let confirmingDeleteId = null;
+let reportFilter = 'today';
+
+function openDatabase() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_TRIPS)) {
+        const store = db.createObjectStore(STORE_TRIPS, { keyPath: 'id' });
+        store.createIndex('status', 'status', { unique: false });
+        store.createIndex('sync_status', 'sync_status', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORE_SYNC_QUEUE)) {
+        db.createObjectStore(STORE_SYNC_QUEUE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function getDB() {
+  if (!dbInstance) dbInstance = await openDatabase();
+  return dbInstance;
+}
+function dbGetAll(storeName) {
+  return getDB().then(db => new Promise((resolve, reject) => {
+    const req = db.transaction(storeName, 'readonly').objectStore(storeName).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  }));
+}
+function dbPut(storeName, record) {
+  return getDB().then(db => new Promise((resolve, reject) => {
+    const req = db.transaction(storeName, 'readwrite').objectStore(storeName).put(record);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  }));
+}
+
+function newId() {
+  return (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+}
+function nowISO() { return new Date().toISOString(); }
+function getDeviceId() {
+  let id = localStorage.getItem('fx_device_id');
+  if (!id) {
+    id = newId();
+    localStorage.setItem('fx_device_id', id);
+  }
+  return id;
+}
+const DEVICE_ID = getDeviceId();
+
+function stampNew(record) {
+  record.id = newId();
+  record.created_at = nowISO();
+  record.updated_at = record.created_at;
+  record.deleted_at = null;
+  record.version = 1;
+  record.sync_status = 'pending';
+  record.device_id = DEVICE_ID;
+  record.user_id = null;
+  record.last_synced_at = null;
+  return record;
+}
+function stampUpdate(record) {
+  record.updated_at = nowISO();
+  record.version = (record.version || 1) + 1;
+  record.sync_status = 'pending';
+  return record;
+}
+
+async function persistTrip(trip, operation) {
+  await dbPut(STORE_TRIPS, trip);
+  await dbPut(STORE_SYNC_QUEUE, {
+    id: newId(),
+    entity_type: 'trip',
+    entity_id: trip.id,
+    operation,
+    payload: JSON.stringify(trip),
+    created_at: nowISO(),
+    status: 'pending'
+  });
+  await updateSyncBadge();
+}
+
+async function updateSyncBadge() {
+  const all = await dbGetAll(STORE_TRIPS);
+  const pending = all.filter(t => t.sync_status === 'pending' && !t.deleted_at).length;
+  const badge = document.getElementById('syncBadge');
+  if (badge) {
+    badge.textContent = pending > 0 ? `${pending} pending sync` : 'saved locally';
+    badge.classList.toggle('pending', pending > 0);
+  }
+}
+
+async function migrateLegacyData() {
+  const raw = localStorage.getItem(OLD_STORAGE_KEY);
+  if (!raw) return 0;
+  let legacy;
+  try { legacy = JSON.parse(raw); } catch (e) { legacy = null; }
+  if (!Array.isArray(legacy) || legacy.length === 0) {
+    localStorage.removeItem(OLD_STORAGE_KEY);
+    return 0;
+  }
+  for (const old of legacy) {
+    const record = Object.assign({}, old);
+    stampNew(record); // assigns a fresh uuid id, replacing the old numeric Date.now() id
+    await dbPut(STORE_TRIPS, record);
+  }
+  localStorage.removeItem(OLD_STORAGE_KEY);
+  return legacy.length;
+}
+
+async function init() {
+  await getDB();
+  const migratedCount = await migrateLegacyData();
+  if (migratedCount > 0) {
+    document.getElementById('migrateBanner').innerHTML =
+      `<div class="migrate-banner">✓ Migrated ${migratedCount} record${migratedCount===1?'':'s'} from the old storage into the local database.</div>`;
+  }
+  const all = await dbGetAll(STORE_TRIPS);
+  trips = all.filter(t => !t.deleted_at).sort((a,b) => b.timeOut - a.timeOut);
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('ledgerContent').style.display = 'block';
+  await updateSyncBadge();
+  render();
+  updatePurposeFields();
+}
+
+function money(n) { return Math.round(n||0).toLocaleString('en-UG'); }
+function formatWithCommas(el) {
+  const cursorFromEnd = el.value.length - el.selectionStart;
+  let raw = el.value.replace(/,/g, '').replace(/[^0-9.]/g, '');
+  const firstDot = raw.indexOf('.');
+  if (firstDot !== -1) {
+    raw = raw.slice(0, firstDot + 1) + raw.slice(firstDot + 1).replace(/\./g, '');
+  }
+  const parts = raw.split('.');
+  let intPart = parts[0] || '';
+  const decPart = parts.length > 1 ? '.' + parts[1].slice(0, 2) : '';
+  intPart = intPart.replace(/^0+(?=\d)/, '');
+  const formattedInt = intPart === '' ? '' : parseInt(intPart, 10).toLocaleString('en-US');
+  el.value = formattedInt + decPart;
+  const pos = Math.max(0, el.value.length - cursorFromEnd);
+  el.setSelectionRange(pos, pos);
+}
+function numVal(id) {
+  const el = document.getElementById(id);
+  if (!el) return 0;
+  return parseFloat((el.value || '').replace(/,/g, '')) || 0;
+}
+function rawStr(id) {
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
+function fmtTime(ms) { return ms ? new Date(ms).toLocaleTimeString('en-UG', {hour:'2-digit', minute:'2-digit'}) : ''; }
+function fmtDateTime(iso) { return iso ? new Date(iso).toLocaleString('en-UG', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '—'; }
+function elapsed(startMs) {
+  const mins = Math.floor((Date.now()-startMs)/60000);
+  const h = Math.floor(mins/60), m = mins%60;
+  return h>0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function updatePurposeFields() {
+  const purpose = document.getElementById('d_purpose').value;
+  document.getElementById('saleFields').style.display = purpose === 'sale' ? 'block' : 'none';
+  document.getElementById('otherFields').style.display = purpose === 'sale' ? 'none' : 'block';
+  updateExpectedPreview();
+}
+
+function updateExpectedPreview() {
+  const purpose = document.getElementById('d_purpose').value;
+  const el = document.getElementById('d_expected_preview');
+  if (purpose === 'sale') {
+    const amount = numVal('d_amount');
+    const rate = numVal('d_rate');
+    if (amount > 0 && rate > 0) {
+      el.style.display = 'block';
+      el.innerHTML = `<span class="neutral">Expected return: ${money(amount*rate)} UGX</span> <span class="small">(amount taken × rate — swap not included, it's not meant to be sold)</span>`;
+    } else {
+      el.style.display = 'none';
+    }
+  } else {
+    const exp = numVal('d_expected_amount');
+    const ccy = document.getElementById('d_expected_currency').value;
+    if (exp > 0) {
+      el.style.display = 'block';
+      el.innerHTML = `<span class="neutral">Expected to bring back: ${money(exp)} ${ccy}</span>`;
+    } else {
+      el.style.display = 'none';
+    }
+  }
+}
+
+async function startTrip() {
+  const teller = document.getElementById('d_teller').value.trim();
+  const purpose = document.getElementById('d_purpose').value;
+  const errEl = document.getElementById('d_error');
+  if (!teller) { errEl.style.display='block'; errEl.textContent='Enter the teller name.'; return; }
+
+  let trip;
+  if (purpose === 'sale') {
+    const amount = numVal('d_amount');
+    if (!amount || amount <= 0) { errEl.style.display='block'; errEl.textContent='Enter an amount taken greater than 0.'; return; }
+    errEl.style.display='none';
+    trip = {
+      status: 'out', purpose: 'sale',
+      teller,
+      currency: document.getElementById('d_currency').value,
+      amountTaken: amount,
+      swap: numVal('d_swap'),
+      rate: numVal('d_rate'),
+      customer: document.getElementById('d_customer').value,
+      timeOut: Date.now(), timeIn: null,
+      delivered: 0, received: 0, fxBalance: 0, ugxBalance: 0, remarks: ''
+    };
+    trip.expectedUgx = trip.amountTaken * trip.rate;
+  } else {
+    errEl.style.display='none';
+    const expCcy = document.getElementById('d_expected_currency').value;
+    trip = {
+      status: 'out', purpose,
+      teller,
+      currency: expCcy,
+      amountTaken: 0, swap: 0, rate: 0,
+      expectedAmount: numVal('d_expected_amount'),
+      expectedCurrency: expCcy,
+      customer: document.getElementById('d_customer').value,
+      timeOut: Date.now(), timeIn: null,
+      broughtAmount: 0, broughtCurrency: expCcy,
+      received: 0, remarks: ''
+    };
+  }
+  stampNew(trip);
+
+  trips.unshift(trip);
+  await persistTrip(trip, 'create');
+
+  document.getElementById('d_amount').value = '';
+  document.getElementById('d_swap').value = '';
+  document.getElementById('d_rate').value = '';
+  document.getElementById('d_customer').value = '';
+  document.getElementById('d_expected_amount').value = '';
+  document.getElementById('d_expected_preview').style.display = 'none';
+
+  const banner = document.getElementById('okBanner');
+  banner.style.display = 'flex';
+  setTimeout(() => banner.style.display = 'none', 2500);
+
+  render();
+}
+
+async function deleteTrip(id) {
+  const trip = trips.find(t => t.id === id);
+  if (!trip) return;
+  trip.deleted_at = nowISO();
+  stampUpdate(trip);
+  await persistTrip(trip, 'delete');
+  trips = trips.filter(t => t.id !== id);
+  render();
+}
+
+function openSettle(id) {
+  settlingId = id;
+  render();
+}
+function cancelSettle() {
+  settlingId = null;
+  render();
+}
+
+function settlePreview(trip) {
+  const rate = numVal('s_rate_'+trip.id);
+  const totalTakenInput = rawStr('s_totaltaken_'+trip.id);
+  const receivedInput = rawStr('s_received_'+trip.id);
+  const previewEl = document.getElementById('s_preview_'+trip.id);
+  if (totalTakenInput === '' || !rate) { previewEl.innerHTML=''; return; }
+
+  const totalTaken = numVal('s_totaltaken_'+trip.id);
+  let mainBalance = 0, swapUsed = 0, swapReturned = trip.swap;
+  if (totalTaken <= trip.amountTaken) {
+    mainBalance = trip.amountTaken - totalTaken;
+  } else {
+    swapUsed = totalTaken - trip.amountTaken;
+    swapReturned = trip.swap - swapUsed;
+  }
+  const expectedUgx = totalTaken * rate;
+
+  let html = '';
+  if (mainBalance > 0) html += `<div class="neutral">Main balance returned: ${money(mainBalance)} ${trip.currency}</div>`;
+  if (trip.swap > 0) {
+    html += swapUsed > 0
+      ? `<div class="owe">Swap used by customer: ${money(swapUsed)} ${trip.currency} — added to total sold</div>`
+      : `<div class="neutral">Swap returned untouched: ${money(swapReturned)} ${trip.currency}</div>`;
+  }
+  if (swapReturned < 0) html += `<div class="warn">⚠ swap used exceeds what was carried by ${money(-swapReturned)} ${trip.currency}</div>`;
+  html += `<div class="neutral">UGX to be submitted: ${money(expectedUgx)}</div>`;
+
+  if (receivedInput !== '') {
+    const receivedNum = numVal('s_received_'+trip.id);
+    const ugxBal = expectedUgx - receivedNum;
+    html += `<div class="${ugxBal>0?'owe':ugxBal<0?'warn':'neutral'}">${ugxBal===0 ? 'UGX fully settled' : ugxBal>0 ? `Underpaid: ${money(ugxBal)} UGX` : `Overpaid: ${money(-ugxBal)} UGX`}</div>`;
+  }
+  previewEl.innerHTML = html;
+}
+
+async function confirmSettle(id) {
+  const trip = trips.find(t => t.id === id);
+  const rate = numVal('s_rate_'+id);
+  const totalTaken = numVal('s_totaltaken_'+id);
+  const received = numVal('s_received_'+id);
+  const remarks = document.getElementById('s_remarks_'+id).value;
+
+  const swapUsed = totalTaken > trip.amountTaken ? totalTaken - trip.amountTaken : 0;
+
+  trip.status = 'settled';
+  trip.timeIn = Date.now();
+  trip.rate = rate;
+  trip.delivered = totalTaken;
+  trip.swapUsed = swapUsed;
+  trip.received = received;
+  trip.fxBalance = (trip.amountTaken + trip.swap) - totalTaken;
+  trip.ugxBalance = (totalTaken*rate) - received;
+  trip.remarks = remarks;
+  stampUpdate(trip);
+
+  settlingId = null;
+  await persistTrip(trip, 'update');
+  render();
+}
+
+function settleOtherPreview(trip) {
+  const broughtInput = rawStr('s_brought_'+trip.id);
+  const previewEl = document.getElementById('s_preview_'+trip.id);
+  if (broughtInput === '') { previewEl.innerHTML=''; return; }
+  const broughtNum = numVal('s_brought_'+trip.id);
+  const ccy = document.getElementById('s_broughtccy_'+trip.id).value;
+  let html = `<div class="neutral">Brought back: ${money(broughtNum)} ${ccy}</div>`;
+  if (trip.expectedAmount > 0 && ccy === trip.expectedCurrency) {
+    const diff = broughtNum - trip.expectedAmount;
+    html += diff === 0
+      ? `<div class="neutral">Matches expected amount</div>`
+      : diff < 0
+      ? `<div class="warn">Short by ${money(-diff)} ${ccy}</div>`
+      : `<div class="owe">Extra ${money(diff)} ${ccy}</div>`;
+  }
+  previewEl.innerHTML = html;
+}
+
+async function confirmSettleOther(id) {
+  const trip = trips.find(t => t.id === id);
+  const brought = numVal('s_brought_'+id);
+  const ccy = document.getElementById('s_broughtccy_'+id).value;
+  const remarks = document.getElementById('s_remarks_'+id).value;
+
+  trip.status = 'settled';
+  trip.timeIn = Date.now();
+  trip.broughtAmount = brought;
+  trip.broughtCurrency = ccy;
+  trip.received = ccy === 'UGX' ? brought : 0;
+  trip.remarks = remarks;
+  stampUpdate(trip);
+
+  settlingId = null;
+  await persistTrip(trip, 'update');
+  render();
+}
+
+function openCollect(id) {
+  collectingId = id;
+  settlingId = null;
+  render();
+}
+function cancelCollect() {
+  collectingId = null;
+  render();
+}
+async function confirmCollect(id) {
+  const trip = trips.find(t => t.id === id);
+  const amount = numVal('c_amount_'+id);
+  const remarks = document.getElementById('c_remarks_'+id).value;
+  if (amount <= 0) return;
+
+  if (!trip.followups) trip.followups = [];
+  trip.followups.push({ amount, remarks, time: Date.now() });
+  trip.received += amount;
+  trip.ugxBalance -= amount;
+  stampUpdate(trip);
+
+  collectingId = null;
+  await persistTrip(trip, 'update');
+  render();
+}
+
+function deleteSettled(id) {
+  confirmingDeleteId = id;
+  editingId = null;
+  collectingId = null;
+  render();
+}
+function cancelDelete() {
+  confirmingDeleteId = null;
+  render();
+}
+async function reallyDeleteSettled(id) {
+  const trip = trips.find(t => t.id === id);
+  if (!trip) return;
+  trip.deleted_at = nowISO();
+  stampUpdate(trip);
+  confirmingDeleteId = null;
+  await persistTrip(trip, 'delete');
+  trips = trips.filter(t => t.id !== id);
+  render();
+}
+
+function openEdit(id) {
+  editingId = id;
+  collectingId = null;
+  settlingId = null;
+  render();
+}
+function cancelEdit() {
+  editingId = null;
+  render();
+}
+
+async function saveEdit(id) {
+  const trip = trips.find(t => t.id === id);
+  trip.teller = document.getElementById('e_teller_'+id).value.trim() || trip.teller;
+  trip.customer = document.getElementById('e_customer_'+id).value;
+  trip.remarks = document.getElementById('e_remarks_'+id).value;
+
+  if ((trip.purpose || 'sale') === 'sale') {
+    trip.amountTaken = numVal('e_amounttaken_'+id);
+    trip.swap = numVal('e_swap_'+id);
+    trip.rate = numVal('e_rate_'+id);
+    trip.delivered = numVal('e_delivered_'+id);
+    trip.received = numVal('e_received_'+id);
+    trip.swapUsed = trip.delivered > trip.amountTaken ? trip.delivered - trip.amountTaken : 0;
+    trip.fxBalance = (trip.amountTaken + trip.swap) - trip.delivered;
+    trip.ugxBalance = (trip.delivered * trip.rate) - trip.received;
+    trip.expectedUgx = trip.amountTaken * trip.rate;
+  } else {
+    trip.expectedAmount = numVal('e_expected_'+id);
+    trip.broughtAmount = numVal('e_brought_'+id);
+    trip.broughtCurrency = document.getElementById('e_broughtccy_'+id).value;
+    trip.received = trip.broughtCurrency === 'UGX' ? trip.broughtAmount : 0;
+  }
+  stampUpdate(trip);
+
+  editingId = null;
+  await persistTrip(trip, 'update');
+  render();
+}
+
+function openDetail(id) {
+  const t = trips.find(x => x.id === id);
+  if (!t) return;
+  const purpose = t.purpose || 'sale';
+  const purposeLabel = purpose === 'sale' ? 'Sell FX to customer' : purpose === 'deposit' ? 'Collect UGX deposit' : 'Assist — transport cash in';
+  const rows = [];
+  rows.push(['Status', t.status === 'out' ? 'Out with teller' : 'Settled']);
+  rows.push(['Purpose', purposeLabel]);
+  rows.push(['Teller', t.teller]);
+  rows.push(['Customer / colleague', t.customer || '—']);
+
+  if (purpose === 'sale') {
+    rows.push(['Currency', t.currency]);
+    rows.push(['Amount taken', `${money(t.amountTaken)} ${t.currency}`]);
+    if (t.swap > 0) rows.push(['Swap carried', `${money(t.swap)} ${t.currency}`]);
+    rows.push(['Rate', t.rate || '—']);
+    if (t.expectedUgx > 0) rows.push(['Expected return', `${money(t.expectedUgx)} UGX`]);
+  } else {
+    if (t.expectedAmount > 0) rows.push(['Expected amount', `${money(t.expectedAmount)} ${t.expectedCurrency}`]);
+  }
+  rows.push(['Time out', fmtTime(t.timeOut)]);
+
+  if (t.status === 'settled') {
+    rows.push(['Time in', fmtTime(t.timeIn)]);
+    if (purpose === 'sale') {
+      rows.push(['Delivered', `${money(t.delivered)} ${t.currency}`]);
+      if (t.swapUsed > 0) rows.push(['Swap used', `${money(t.swapUsed)} ${t.currency}`]);
+      rows.push(['FX balance', `${money(Math.abs(t.fxBalance))} ${t.currency} ${t.fxBalance >= 0 ? '(returned)' : '(over what was carried)'}`]);
+      rows.push(['UGX received', `${money(t.received)}`]);
+      if (t.ugxBalance !== 0) rows.push([t.ugxBalance > 0 ? 'Underpaid' : 'Overpaid', `${money(Math.abs(t.ugxBalance))} UGX`]);
+      if (t.followups && t.followups.length) {
+        t.followups.forEach((f, i) => {
+          rows.push([`Balance collected #${i+1}`, `${money(f.amount)} UGX — ${new Date(f.time).toLocaleDateString('en-UG',{day:'numeric',month:'short'})}${f.remarks ? ' ('+f.remarks+')' : ''}`]);
+        });
+      }
+    } else {
+      rows.push(['Brought back', `${money(t.broughtAmount)} ${t.broughtCurrency}`]);
+      if (t.expectedAmount > 0 && t.broughtCurrency === t.expectedCurrency && t.broughtAmount !== t.expectedAmount) {
+        const diff = t.broughtAmount - t.expectedAmount;
+        rows.push([diff < 0 ? 'Short' : 'Extra', `${money(Math.abs(diff))} ${t.expectedCurrency}`]);
+      }
+    }
+    if (t.remarks) rows.push(['Remarks', t.remarks]);
+  } else {
+    rows.push(['Elapsed', elapsed(t.timeOut)]);
+  }
+
+  const html = `
+    <div class="modal-close" onclick="closeDetail()">✕</div>
+    <span class="status-pill ${t.status==='out'?'status-out':'status-settled'}">${t.status === 'out' ? 'Out' : 'Settled'}</span>
+    <span class="status-pill ${t.sync_status==='pending'?'status-pending':'status-synced'}">${t.sync_status==='pending' ? 'Pending sync' : 'Synced'}</span>
+    <div class="modal-title">${t.teller} — ${t.customer || 'no customer name'}</div>
+    <div class="small" style="margin-bottom:14px;">${new Date(t.timeOut).toLocaleDateString('en-UG',{weekday:'short', day:'numeric', month:'short'})}</div>
+    ${rows.map(([label,val]) => `<div class="detail-row"><span class="detail-label">${label}</span><span class="detail-val mono">${val}</span></div>`).join('')}
+    <div class="detail-section-label">Record Info</div>
+    <div class="detail-row"><span class="detail-label">Record ID</span><span class="detail-val mono">${t.id.slice(0,8)}…</span></div>
+    <div class="detail-row"><span class="detail-label">Created</span><span class="detail-val mono">${fmtDateTime(t.created_at)}</span></div>
+    <div class="detail-row"><span class="detail-label">Last updated</span><span class="detail-val mono">${fmtDateTime(t.updated_at)}</span></div>
+    <div class="detail-row"><span class="detail-label">Version</span><span class="detail-val mono">${t.version||1}</span></div>
+  `;
+  document.getElementById('detailContent').innerHTML = html;
+  document.getElementById('detailModal').classList.add('open');
+}
+function closeDetail() {
+  document.getElementById('detailModal').classList.remove('open');
+}
+
+function render() {
+  const outTrips = trips.filter(t => t.status === 'out');
+  const settledTrips = trips.filter(t => t.status === 'settled');
+
+  document.getElementById('tripsOut').textContent = outTrips.length;
+  document.getElementById('totalUgx').textContent = money(settledTrips.reduce((s,t)=>s+t.received,0));
+
+  const ccyTotals = {};
+  outTrips.forEach(t => { ccyTotals[t.currency] = (ccyTotals[t.currency]||0) + t.amountTaken + t.swap; });
+  const chipsEl = document.getElementById('outstandingChips');
+  chipsEl.innerHTML = Object.entries(ccyTotals).map(([c,q]) => `<span class="chip mono">${c} ${money(q)} out</span>`).join('');
+
+  const outEl = document.getElementById('outSection');
+  if (outTrips.length === 0) {
+    outEl.innerHTML = '';
+  } else {
+    outEl.innerHTML = `<div class="label" style="margin-bottom:8px;">Out With Teller (${outTrips.length})</div>` +
+      outTrips.map(t => `
+        <div class="card card-out" onclick="if(settlingId!=='${t.id}') openDetail('${t.id}')">
+          <div class="flex-between">
+            <div>
+              <div style="font-size:14px; font-weight:500;">${t.teller}${t.purpose && t.purpose!=='sale' ? ` <span class="small">· ${t.purpose === 'deposit' ? 'UGX deposit' : 'assist'}</span>` : ''}</div>
+              ${t.purpose === 'sale' ? `
+                <div class="small" style="margin-top:2px;">${t.currency} ${money(t.amountTaken)}${t.swap ? ` (+${money(t.swap)} swap)` : ''} → ${t.customer || 'customer'}</div>
+                ${t.expectedUgx > 0 ? `<div class="small mono" style="margin-top:2px;">expected: ${money(t.expectedUgx)} UGX</div>` : ''}
+              ` : `
+                <div class="small" style="margin-top:2px;">→ ${t.customer || 'customer / colleague'}</div>
+                ${t.expectedAmount > 0 ? `<div class="small mono" style="margin-top:2px;">expected: ${money(t.expectedAmount)} ${t.expectedCurrency}</div>` : ''}
+              `}
+              <div class="small" style="margin-top:4px;">out ${fmtTime(t.timeOut)} · ${elapsed(t.timeOut)} ago</div>
+            </div>
+            <button class="btn-icon" onclick="event.stopPropagation(); deleteTrip('${t.id}')">✕</button>
+          </div>
+          ${settlingId === t.id ? (
+            t.purpose === 'sale' ? `
+            <div class="settle-box" onclick="event.stopPropagation()">
+              <div class="small" style="margin-bottom:8px;">carried: ${money(t.amountTaken+t.swap)} ${t.currency} (amount taken + swap)${t.expectedUgx > 0 ? ` · originally expected ${money(t.expectedUgx)} UGX` : ''}</div>
+              <div class="row">
+                <input id="s_rate_${t.id}" type="text" inputmode="decimal" placeholder="rate used" value="${t.rate ? money(t.rate) : ''}" oninput="formatWithCommas(this); settlePreview(trips.find(x=>x.id==='${t.id}'))">
+                <input id="s_totaltaken_${t.id}" type="text" inputmode="decimal" placeholder="total amount taken" value="${money(t.amountTaken)}" oninput="formatWithCommas(this); settlePreview(trips.find(x=>x.id==='${t.id}'))">
+              </div>
+              <input id="s_received_${t.id}" type="text" inputmode="decimal" placeholder="UGX received" oninput="formatWithCommas(this); settlePreview(trips.find(x=>x.id==='${t.id}'))">
+              <div class="preview" id="s_preview_${t.id}"></div>
+              <input id="s_remarks_${t.id}" placeholder="remarks (e.g. balance due next visit)">
+              <div class="row">
+                <button class="btn-buy" onclick="confirmSettle('${t.id}')">✓ Confirm Submission</button>
+                <button class="btn-ghost" onclick="cancelSettle()" style="flex:0 0 80px;">Cancel</button>
+              </div>
+            </div>
+            ` : `
+            <div class="settle-box" onclick="event.stopPropagation()">
+              ${t.expectedAmount > 0 ? `<div class="small" style="margin-bottom:8px;">expected: ${money(t.expectedAmount)} ${t.expectedCurrency}</div>` : ''}
+              <div class="row">
+                <input id="s_brought_${t.id}" type="text" inputmode="decimal" placeholder="amount brought back" oninput="formatWithCommas(this); settleOtherPreview(trips.find(x=>x.id==='${t.id}'))">
+                <select id="s_broughtccy_${t.id}" onchange="settleOtherPreview(trips.find(x=>x.id==='${t.id}'))">
+                  <option${t.expectedCurrency==='UGX'?' selected':''}>UGX</option>
+                  <option${t.expectedCurrency==='USD'?' selected':''}>USD</option>
+                  <option${t.expectedCurrency==='EUR'?' selected':''}>EUR</option>
+                  <option${t.expectedCurrency==='GBP'?' selected':''}>GBP</option>
+                  <option${t.expectedCurrency==='KES'?' selected':''}>KES</option>
+                </select>
+              </div>
+              <div class="preview" id="s_preview_${t.id}"></div>
+              <input id="s_remarks_${t.id}" placeholder="remarks (optional)">
+              <div class="row">
+                <button class="btn-buy" onclick="confirmSettleOther('${t.id}')">✓ Confirm Submission</button>
+                <button class="btn-ghost" onclick="cancelSettle()" style="flex:0 0 80px;">Cancel</button>
+              </div>
+            </div>
+            `
+          ) : `<button class="btn-ghost" style="margin-top:8px;" onclick="event.stopPropagation(); openSettle('${t.id}')">Mark Returned →</button>`}
+        </div>
+      `).join('');
+    if (settlingId) setTimeout(() => {
+      const t = trips.find(x=>x.id===settlingId);
+      if(t) { t.purpose === 'sale' ? settlePreview(t) : settleOtherPreview(t); }
+    }, 0);
+  }
+
+  const settledEl = document.getElementById('settledSection');
+  if (settledTrips.length === 0) {
+    settledEl.innerHTML = '<div class="empty">No trips settled yet.</div>';
+  } else {
+    settledEl.innerHTML = settledTrips.map(t => `
+      <div class="card" onclick="if(collectingId!=='${t.id}' && editingId!=='${t.id}' && confirmingDeleteId!=='${t.id}') openDetail('${t.id}')">
+        <div class="flex-between">
+          <div style="font-size:14px;"><b>${t.teller}</b> <span class="small">· ${t.customer||'—'}${t.purpose && t.purpose!=='sale' ? ` · ${t.purpose === 'deposit' ? 'UGX deposit' : 'assist'}` : ''}</span></div>
+          <div class="small mono">${fmtTime(t.timeOut)} → ${fmtTime(t.timeIn)}</div>
+        </div>
+        ${editingId === t.id ? (
+          (t.purpose || 'sale') === 'sale' ? `
+          <div class="settle-box" onclick="event.stopPropagation()">
+            <input id="e_teller_${t.id}" placeholder="teller name" value="${t.teller}">
+            <input id="e_customer_${t.id}" placeholder="customer name" value="${t.customer||''}">
+            <div class="row">
+              <input id="e_amounttaken_${t.id}" type="text" inputmode="decimal" placeholder="amount taken" value="${money(t.amountTaken)}" oninput="formatWithCommas(this)">
+              <input id="e_swap_${t.id}" type="text" inputmode="decimal" placeholder="swap" value="${t.swap ? money(t.swap) : ''}" oninput="formatWithCommas(this)">
+            </div>
+            <div class="row">
+              <input id="e_rate_${t.id}" type="text" inputmode="decimal" placeholder="rate" value="${money(t.rate)}" oninput="formatWithCommas(this)">
+              <input id="e_delivered_${t.id}" type="text" inputmode="decimal" placeholder="total delivered" value="${money(t.delivered)}" oninput="formatWithCommas(this)">
+            </div>
+            <input id="e_received_${t.id}" type="text" inputmode="decimal" placeholder="UGX received" value="${money(t.received)}" oninput="formatWithCommas(this)">
+            <input id="e_remarks_${t.id}" placeholder="remarks" value="${t.remarks||''}">
+            <div class="row">
+              <button class="btn-buy" onclick="saveEdit('${t.id}')">✓ Save Changes</button>
+              <button class="btn-ghost" onclick="cancelEdit()" style="flex:0 0 80px;">Cancel</button>
+            </div>
+          </div>
+          ` : `
+          <div class="settle-box" onclick="event.stopPropagation()">
+            <input id="e_teller_${t.id}" placeholder="teller name" value="${t.teller}">
+            <input id="e_customer_${t.id}" placeholder="customer / colleague" value="${t.customer||''}">
+            <input id="e_expected_${t.id}" type="text" inputmode="decimal" placeholder="expected amount" value="${t.expectedAmount ? money(t.expectedAmount) : ''}" oninput="formatWithCommas(this)">
+            <div class="row">
+              <input id="e_brought_${t.id}" type="text" inputmode="decimal" placeholder="amount brought back" value="${money(t.broughtAmount)}" oninput="formatWithCommas(this)">
+              <select id="e_broughtccy_${t.id}">
+                <option${t.broughtCurrency==='UGX'?' selected':''}>UGX</option>
+                <option${t.broughtCurrency==='USD'?' selected':''}>USD</option>
+                <option${t.broughtCurrency==='EUR'?' selected':''}>EUR</option>
+                <option${t.broughtCurrency==='GBP'?' selected':''}>GBP</option>
+                <option${t.broughtCurrency==='KES'?' selected':''}>KES</option>
+              </select>
+            </div>
+            <input id="e_remarks_${t.id}" placeholder="remarks" value="${t.remarks||''}">
+            <div class="row">
+              <button class="btn-buy" onclick="saveEdit('${t.id}')">✓ Save Changes</button>
+              <button class="btn-ghost" onclick="cancelEdit()" style="flex:0 0 80px;">Cancel</button>
+            </div>
+          </div>
+          `
+        ) : `
+        ${t.purpose === 'sale' ? `
+        <div class="grid2 mono" style="font-size:12px; color:#9A9A9E; margin-top:6px;">
+          <span>Carried</span><span style="text-align:right;">${t.currency} ${money(t.amountTaken)}${t.swap?` (+${money(t.swap)} swap)`:''}</span>
+          <span>Delivered</span><span style="text-align:right;">${t.currency} ${money(t.delivered)}</span>
+          <span>Rate</span><span style="text-align:right;">${t.rate}</span>
+          <span>UGX received</span><span style="text-align:right; color:#E8E8E8;">${money(t.received)}</span>
+        </div>
+        ` : `
+        <div class="grid2 mono" style="font-size:12px; color:#9A9A9E; margin-top:6px;">
+          ${t.expectedAmount > 0 ? `<span>Expected</span><span style="text-align:right;">${money(t.expectedAmount)} ${t.expectedCurrency}</span>` : ''}
+          <span>Brought back</span><span style="text-align:right; color:#E8E8E8;">${money(t.broughtAmount)} ${t.broughtCurrency}</span>
+        </div>
+        `}
+        ${t.remarks ? `<div class="small italic" style="margin-top:6px;">"${t.remarks}"</div>` : ''}
+        ${t.swapUsed > 0 ? `<div class="small owe" style="margin-top:6px;">Swap used by customer: ${money(t.swapUsed)} ${t.currency} (added to sale)</div>` : ''}
+        ${t.fxBalance !== 0 ? `<div class="small ${t.fxBalance<0?'warn':'neutral'}" style="margin-top:4px;">${t.fxBalance>=0 ? `FX balance returned: ${money(t.fxBalance)} ${t.currency}` : `⚠ Delivered ${money(-t.fxBalance)} ${t.currency} beyond what was carried`}</div>` : ''}
+        ${t.purpose === 'sale' && t.ugxBalance !== 0 ? `<div class="small ${t.ugxBalance>0?'owe':'warn'}" style="margin-top:4px;">${t.ugxBalance>0 ? `Underpaid: ${money(t.ugxBalance)} UGX` : `Overpaid: ${money(-t.ugxBalance)} UGX`}</div>` : ''}
+        ${t.purpose !== 'sale' && t.expectedAmount > 0 && t.broughtCurrency === t.expectedCurrency && t.broughtAmount !== t.expectedAmount ? `<div class="small ${t.broughtAmount < t.expectedAmount ? 'warn' : 'owe'}" style="margin-top:4px;">${t.broughtAmount < t.expectedAmount ? `Short by ${money(t.expectedAmount - t.broughtAmount)} ${t.expectedCurrency}` : `Extra ${money(t.broughtAmount - t.expectedAmount)} ${t.expectedCurrency}`}</div>` : ''}
+        ${(t.followups && t.followups.length) ? t.followups.map(f => `<div class="small neutral" style="margin-top:4px;">+ balance collected: ${money(f.amount)} UGX on ${new Date(f.time).toLocaleDateString('en-UG',{day:'numeric',month:'short'})}${f.remarks ? ` — "${f.remarks}"` : ''}</div>`).join('') : ''}
+        ${t.ugxBalance > 0 ? (
+          collectingId === t.id ? `
+            <div class="settle-box" onclick="event.stopPropagation()">
+              <input id="c_amount_${t.id}" type="text" inputmode="decimal" placeholder="amount collected (UGX)" value="${money(t.ugxBalance)}" oninput="formatWithCommas(this)">
+              <input id="c_remarks_${t.id}" placeholder="remarks (optional)">
+              <div class="row">
+                <button class="btn-buy" onclick="confirmCollect('${t.id}')">✓ Record Collection</button>
+                <button class="btn-ghost" onclick="cancelCollect()" style="flex:0 0 80px;">Cancel</button>
+              </div>
+            </div>
+          ` : `<button class="btn-ghost" style="margin-top:8px;" onclick="event.stopPropagation(); openCollect('${t.id}')">Collect Balance Owed →</button>`
+        ) : ''}
+        <div class="row" style="margin-top:8px;">
+          ${confirmingDeleteId === t.id ? `
+            <span class="small warn" style="flex:1; align-self:center;">Delete this record?</span>
+            <button class="btn-danger btn-sm" onclick="event.stopPropagation(); reallyDeleteSettled('${t.id}')">Yes, delete</button>
+            <button class="btn-ghost btn-sm" onclick="event.stopPropagation(); cancelDelete()">Cancel</button>
+          ` : `
+            <button class="btn-ghost btn-sm" onclick="event.stopPropagation(); openEdit('${t.id}')">Edit</button>
+            <button class="btn-danger btn-sm" onclick="event.stopPropagation(); deleteSettled('${t.id}')">Delete</button>
+          `}
+        </div>
+        `}
+      </div>
+    `).join('');
+  }
+}
+
+function switchTab(tab) {
+  document.getElementById('ledgerView').style.display = tab === 'ledger' ? 'block' : 'none';
+  document.getElementById('reportView').style.display = tab === 'report' ? 'block' : 'none';
+  document.getElementById('tab_ledger').classList.toggle('active', tab === 'ledger');
+  document.getElementById('tab_report').classList.toggle('active', tab === 'report');
+  if (tab === 'report') renderReport();
+}
+
+function setReportFilter(filter, btn) {
+  reportFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderReport();
+}
+
+function filterCutoff() {
+  const now = new Date();
+  if (reportFilter === 'today') {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return d.getTime();
+  }
+  if (reportFilter === '7d') return Date.now() - 7*24*60*60*1000;
+  if (reportFilter === '30d') return Date.now() - 30*24*60*60*1000;
+  return 0;
+}
+
+async function renderReport() {
+  const cutoff = filterCutoff();
+  const settled = trips.filter(t => t.status === 'settled' && t.timeIn >= cutoff);
+  const outTrips = trips.filter(t => t.status === 'out');
+
+  const totalUgx = settled.reduce((s,t) => s + (t.received||0), 0);
+  document.getElementById('r_totalUgx').textContent = money(totalUgx);
+  document.getElementById('r_totalTxns').textContent = settled.length;
+  document.getElementById('r_currentlyOut').textContent = outTrips.length;
+
+  const allSettled = trips.filter(t => t.status === 'settled');
+  const outstandingUgx = allSettled.reduce((s,t) => s + ((t.purpose||'sale')==='sale' && t.ugxBalance > 0 ? t.ugxBalance : 0), 0);
+  document.getElementById('r_outstanding').textContent = money(outstandingUgx);
+
+  const purposes = { sale: {label:'Sale', count:0, ugx:0}, deposit: {label:'UGX Deposit', count:0, ugx:0}, assist: {label:'Assist', count:0, ugx:0} };
+  settled.forEach(t => {
+    const p = t.purpose || 'sale';
+    if (purposes[p]) { purposes[p].count++; purposes[p].ugx += (t.received||0); }
+  });
+  document.getElementById('r_byPurpose').innerHTML = Object.values(purposes).map(p => `
+    <div class="report-row"><span>${p.label} <span class="report-sub">(${p.count})</span></span><span class="mono">${money(p.ugx)} UGX</span></div>
+  `).join('') || '<div class="small">No data for this period.</div>';
+
+  const ccyMap = {};
+  settled.filter(t => (t.purpose||'sale')==='sale').forEach(t => {
+    if (!ccyMap[t.currency]) ccyMap[t.currency] = { taken:0, delivered:0, swapUsed:0, count:0 };
+    ccyMap[t.currency].taken += t.amountTaken||0;
+    ccyMap[t.currency].delivered += t.delivered||0;
+    ccyMap[t.currency].swapUsed += t.swapUsed||0;
+    ccyMap[t.currency].count++;
+  });
+  const ccyKeys = Object.keys(ccyMap);
+  document.getElementById('r_byCurrency').innerHTML = ccyKeys.length ? ccyKeys.map(c => `
+    <div class="report-row">
+      <span>${c} <span class="report-sub">(${ccyMap[c].count} trips)</span></span>
+      <span class="mono">delivered ${money(ccyMap[c].delivered)}${ccyMap[c].swapUsed ? ` <span class="owe">(+${money(ccyMap[c].swapUsed)} swap)</span>` : ''}</span>
+    </div>
+  `).join('') : '<div class="small">No sales in this period.</div>';
+
+  const tellerMap = {};
+  settled.forEach(t => {
+    const name = t.teller || 'Unknown';
+    if (!tellerMap[name]) tellerMap[name] = { count:0, ugx:0 };
+    tellerMap[name].count++;
+    tellerMap[name].ugx += (t.received||0);
+  });
+  const tellerKeys = Object.keys(tellerMap).sort((a,b) => tellerMap[b].ugx - tellerMap[a].ugx);
+  document.getElementById('r_byTeller').innerHTML = tellerKeys.length ? tellerKeys.map(name => `
+    <div class="report-row"><span>${name} <span class="report-sub">(${tellerMap[name].count})</span></span><span class="mono">${money(tellerMap[name].ugx)} UGX</span></div>
+  `).join('') : '<div class="small">No data for this period.</div>';
+
+  const allRecords = await dbGetAll(STORE_TRIPS);
+  const activeRecords = allRecords.filter(t => !t.deleted_at);
+  document.getElementById('r_dbCount').textContent = activeRecords.length;
+  document.getElementById('r_dbPending').textContent = activeRecords.filter(t => t.sync_status === 'pending').length;
+  document.getElementById('r_deviceId').textContent = DEVICE_ID.slice(0,13) + '…';
+}
+
+async function exportBackup() {
+  const all = await dbGetAll(STORE_TRIPS);
+  const backup = {
+    app: 'fx-dispatch-ledger',
+    exported_at: nowISO(),
+    device_id: DEVICE_ID,
+    record_count: all.length,
+    records: all
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `fx-ledger-backup-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  document.getElementById('backupStatus').textContent = `Exported ${all.length} records.`;
+}
+
+function importBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('backupStatus');
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const data = JSON.parse(reader.result);
+      const records = Array.isArray(data) ? data : data.records;
+      if (!Array.isArray(records)) throw new Error('No records array found in file.');
+      let count = 0;
+      for (const r of records) {
+        if (!r.id) continue;
+        await dbPut(STORE_TRIPS, r);
+        count++;
+      }
+      const all = await dbGetAll(STORE_TRIPS);
+      trips = all.filter(t => !t.deleted_at).sort((a,b) => b.timeOut - a.timeOut);
+      statusEl.textContent = `Restored ${count} records from backup.`;
+      await updateSyncBadge();
+      render();
+      renderReport();
+    } catch (err) {
+      statusEl.textContent = 'Could not read that backup file: ' + err.message;
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+init();
+</script>
+</body>
+</html>
