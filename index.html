@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Transaction's Reconciliation</title>
+<link rel="icon" href="data:,">
+
+<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/cards.css">
+<link rel="stylesheet" href="css/forms.css">
+<link rel="stylesheet" href="css/reports.css">
+<link rel="stylesheet" href="css/modal.css">
+<link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <div>
+      <div class="eyebrow">FX Field Ledger</div>
+      <div class="title">Transaction's Reconciliation</div>
+    </div>
+    <div class="sync-badge" id="syncBadge">local db loading…</div>
+  </div>
+</header>
+
+<div class="tabbar">
+  <button class="tab-btn active" id="tab_ledger" onclick="switchTab('ledger')">Ledger</button>
+  <button class="tab-btn" id="tab_report" onclick="switchTab('report')">Report</button>
+</div>
+
+<div class="wrap" id="ledgerView">
+  <div class="loading-screen" id="loadingScreen">Opening local database…</div>
+
+  <div id="ledgerContent" style="display:none;">
+
+  <div id="migrateBanner"></div>
+
+  <div class="grid2">
+    <div class="card no-tap">
+      <div class="label">UGX collected today</div>
+      <div class="stat-val mono" id="totalUgx">0</div>
+    </div>
+    <div class="card no-tap">
+      <div class="label">Trips out</div>
+      <div class="stat-val mono" id="tripsOut">0</div>
+    </div>
+  </div>
+
+  <div id="outstandingChips"></div>
+
+  <div class="card no-tap">
+    <div class="label">Dispatch — Sending Out</div>
+    <input id="d_teller" placeholder="teller name">
+    <select id="d_purpose" onchange="updatePurposeFields()">
+      <option value="sale">Sell FX to customer</option>
+      <option value="deposit">Collect UGX deposit</option>
+      <option value="assist">Assist colleague — transport cash in</option>
+    </select>
+
+    <div id="saleFields">
+      <div class="row">
+        <select id="d_currency">
+          <option>USD</option><option>EUR</option><option>GBP</option><option>KES</option>
+        </select>
+        <input id="d_amount" type="text" inputmode="decimal" placeholder="amount taken" oninput="formatWithCommas(this); updateExpectedPreview()">
+      </div>
+      <div class="row">
+        <input id="d_swap" type="text" inputmode="decimal" placeholder="swap buffer (optional)" oninput="formatWithCommas(this); updateExpectedPreview()">
+        <input id="d_rate" type="text" inputmode="decimal" placeholder="agreed rate" oninput="formatWithCommas(this); updateExpectedPreview()">
+      </div>
+    </div>
+
+    <div id="otherFields" style="display:none;">
+      <div class="row">
+        <input id="d_expected_amount" type="text" inputmode="decimal" placeholder="expected amount (optional)" oninput="formatWithCommas(this); updateExpectedPreview()">
+        <select id="d_expected_currency">
+          <option>UGX</option><option>USD</option><option>EUR</option><option>GBP</option><option>KES</option>
+        </select>
+      </div>
+    </div>
+
+    <input id="d_customer" placeholder="customer / colleague name">
+    <div class="preview" id="d_expected_preview" style="display:none;"></div>
+    <div class="err" id="d_error" style="display:none;"></div>
+    <button class="btn-primary" onclick="startTrip()">Record Dispatch — Set Off Now</button>
+  </div>
+
+  <div class="ok-banner" id="okBanner" style="display:none;">✓ Trip recorded — see "Out With Teller" below to mark it returned.</div>
+
+  <div id="outSection"></div>
+
+  <div>
+    <div class="label" style="margin-bottom:8px;">Settled Today</div>
+    <div id="settledSection"></div>
+  </div>
+
+  </div>
+</div>
+
+<div class="wrap" id="reportView" style="display:none;">
+  <div class="filterbar">
+    <button class="filter-btn active" onclick="setReportFilter('today', this)">Today</button>
+    <button class="filter-btn" onclick="setReportFilter('7d', this)">7 Days</button>
+    <button class="filter-btn" onclick="setReportFilter('30d', this)">30 Days</button>
+    <button class="filter-btn" onclick="setReportFilter('all', this)">All Time</button>
+  </div>
+
+  <div class="grid2">
+    <div class="card no-tap">
+      <div class="label">UGX collected</div>
+      <div class="stat-val mono" id="r_totalUgx">0</div>
+    </div>
+    <div class="card no-tap">
+      <div class="label">Transactions</div>
+      <div class="stat-val mono" id="r_totalTxns">0</div>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card no-tap">
+      <div class="label">Currently out</div>
+      <div class="stat-val mono" id="r_currentlyOut">0</div>
+    </div>
+    <div class="card no-tap">
+      <div class="label">Outstanding UGX (all time)</div>
+      <div class="stat-val mono owe" id="r_outstanding">0</div>
+    </div>
+  </div>
+
+  <div class="card no-tap">
+    <div class="label" style="margin-bottom:10px;">By Purpose</div>
+    <div id="r_byPurpose"></div>
+  </div>
+
+  <div class="card no-tap">
+    <div class="label" style="margin-bottom:10px;">By Currency (sales)</div>
+    <div id="r_byCurrency"></div>
+  </div>
+
+  <div class="card no-tap">
+    <div class="label" style="margin-bottom:10px;">By Teller</div>
+    <div id="r_byTeller"></div>
+  </div>
+
+  <div class="card no-tap">
+    <div class="label" style="margin-bottom:10px;">Local Database</div>
+    <div class="detail-row"><span class="detail-label">Records stored</span><span class="detail-val mono" id="r_dbCount">0</span></div>
+    <div class="detail-row"><span class="detail-label">Pending sync</span><span class="detail-val mono owe" id="r_dbPending">0</span></div>
+    <div class="detail-row"><span class="detail-label">Device ID</span><span class="detail-val mono small" id="r_deviceId">—</span></div>
+    <div class="small" style="margin-top:10px;">No cloud connection is configured yet — everything above is stored only on this device. Pending sync counts records ready to upload once a server is connected.</div>
+  </div>
+
+  <div class="card no-tap">
+    <div class="label" style="margin-bottom:10px;">Backup</div>
+    <div class="small" style="margin-bottom:10px;">Export a full copy of every record to a file you can keep safe or move to another device. Restoring merges records in — it won't erase what's already here.</div>
+    <button class="btn-ghost" onclick="exportBackup()">Export Backup (.json)</button>
+    <label class="file-input-label" for="importFile" style="margin-top:8px;">Restore from Backup File</label>
+    <input type="file" id="importFile" accept="application/json" onchange="importBackup(event)">
+    <div class="small" id="backupStatus"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="detailModal" onclick="if(event.target===this) closeDetail()">
+  <div class="modal-sheet" id="detailContent"></div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

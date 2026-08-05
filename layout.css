@@ -1,0 +1,106 @@
+/*
+  layout.css
+  ----------
+  Page-level structural pieces: the sticky header, the Ledger/Report
+  tab bar, the date-range filter bar on the Report tab, and the
+  one-off status banners (loading screen, migration notice).
+*/
+
+header {
+  background: #2A2A2C;
+  border-bottom: 1px solid #3D3D40;
+  padding: 16px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.sync-badge {
+  font-size: 10px;
+  color: #9A9A9E;
+  background: #1C1C1E;
+  border: 1px solid #3D3D40;
+  padding: 4px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.sync-badge.pending {
+  color: #C9A227;
+  border-color: #4A3D1A;
+}
+
+.tabbar {
+  display: flex;
+  background: #242426;
+  border-bottom: 1px solid #3D3D40;
+  position: sticky;
+  top: 65px;
+  z-index: 9;
+}
+
+.tab-btn {
+  flex: 1;
+  background: none;
+  color: #9A9A9E;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+}
+
+.tab-btn.active {
+  color: #E8E8E8;
+  border-bottom: 2px solid #B8860B;
+}
+
+.filterbar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+
+.filter-btn {
+  background: #2A2A2C;
+  color: #9A9A9E;
+  border: 1px solid #3D3D40;
+  padding: 7px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  border-radius: 20px;
+}
+
+.filter-btn.active {
+  background: #B8860B;
+  color: #1C1C1E;
+  border-color: #B8860B;
+  font-weight: 600;
+}
+
+.loading-screen {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6E6E72;
+  font-size: 14px;
+}
+
+.migrate-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #1F2E3D;
+  border: 1px solid #2E4A5D;
+  color: #7FB0D9;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}

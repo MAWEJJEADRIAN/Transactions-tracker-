@@ -1,0 +1,23 @@
+{
+  "name": "transactions-tracker",
+  "version": "1.0.0",
+  "description": "Offline-first FX dispatch and transaction reconciliation ledger for a Forex Bureau",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve . -l 3000",
+    "dev": "npx --yes serve . -l 3000"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "fx",
+    "forex",
+    "ledger",
+    "offline-first",
+    "indexeddb",
+    "pwa"
+  ],
+  "license": "UNLICENSED"
+}

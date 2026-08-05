@@ -1,0 +1,25 @@
+/*
+  reports.css
+  -----------
+  Row styling for the Report tab's breakdown lists (by purpose, by
+  currency, by teller). The report's summary cards, filter buttons,
+  and backup buttons reuse cards.css/forms.css/layout.css — this file
+  only holds what's unique to the report's list rows.
+*/
+
+.report-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid #333336;
+  font-size: 13px;
+}
+
+.report-row:last-child {
+  border-bottom: none;
+}
+
+.report-sub {
+  color: #9A9A9E;
+  font-size: 11px;
+}

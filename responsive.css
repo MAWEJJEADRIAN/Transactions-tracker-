@@ -1,0 +1,23 @@
+/*
+  responsive.css
+  --------------
+  The app was designed mobile-first and every rule above already works
+  correctly on a phone screen — nothing here changes that. This file
+  only adds behaviour for wider viewports (tablets/desktops) so the
+  layout doesn't stretch edge-to-edge on a large screen. Loaded last so
+  these min-width rules can override earlier full-width defaults.
+*/
+
+@media (min-width: 640px) {
+  header,
+  .tabbar,
+  .wrap {
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .modal-sheet {
+    margin: 0 auto;
+  }
+}

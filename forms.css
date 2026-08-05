@@ -1,0 +1,142 @@
+/*
+  forms.css
+  ---------
+  Every interactive input control in the app: text/number inputs,
+  selects, buttons (in all their variants), the settle/edit inline
+  forms, and the small live-calculation preview boxes shown while
+  filling in a dispatch or settlement.
+*/
+
+input, select {
+  width: 100%;
+  background: #1C1C1E;
+  border: 1px solid #3D3D40;
+  border-radius: 6px;
+  padding: 9px 10px;
+  font-size: 14px;
+  color: #E8E8E8;
+  margin-bottom: 8px;
+}
+
+input::placeholder {
+  color: #6E6E72;
+}
+
+input[type="file"] {
+  display: none;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.row > * {
+  flex: 1;
+  margin-bottom: 8px;
+}
+
+button {
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-primary {
+  background: #B8860B;
+  color: #1C1C1E;
+  font-weight: 600;
+  padding: 11px;
+  width: 100%;
+}
+
+.btn-buy {
+  background: #4A7A4E;
+  color: white;
+  padding: 8px;
+  width: 100%;
+}
+
+.btn-ghost {
+  background: #3D3D40;
+  color: #E8E8E8;
+  padding: 8px;
+  width: 100%;
+}
+
+.btn-danger {
+  background: #4A2C2C;
+  color: #E8A0A0;
+  padding: 8px;
+  width: 100%;
+}
+
+.btn-sm {
+  padding: 6px;
+  font-size: 12px;
+  flex: 1;
+}
+
+.btn-icon {
+  background: none;
+  color: #6E6E72;
+  padding: 4px;
+}
+
+.btn-icon:hover {
+  color: #D06666;
+}
+
+.file-input-label {
+  display: block;
+  background: #3D3D40;
+  color: #E8E8E8;
+  padding: 9px 10px;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 13px;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.settle-box {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #48484B;
+}
+
+.preview {
+  font-size: 11px;
+  background: #1C1C1E;
+  border: 1px solid #3D3D40;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.warn {
+  color: #D06666;
+}
+
+.owe {
+  color: #C9A227;
+}
+
+.neutral {
+  color: #9A9A9E;
+}
+
+.ok-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #333336;
+  border: 1px solid #48484B;
+  color: #7CB87F;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  font-size: 14px;
+}

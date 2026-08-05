@@ -1,0 +1,72 @@
+/*
+  main.css
+  --------
+  Foundational styles: font loading, resets, typography, and small
+  utility classes used across the whole app (text sizing, colors,
+  monospace numbers). Nothing in here is specific to any one feature —
+  card styling lives in cards.css, buttons/inputs in forms.css, etc.
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: #1C1C1E;
+  color: #E8E8E8;
+  padding-bottom: 60px;
+}
+
+.mono {
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.eyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #B8860B;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.wrap {
+  padding: 16px;
+}
+
+.label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #9A9A9E;
+  margin-bottom: 6px;
+}
+
+.small {
+  font-size: 11px;
+  color: #9A9A9E;
+}
+
+.italic {
+  font-style: italic;
+}
+
+.err {
+  color: #D06666;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.no-tap {
+  cursor: default;
+}
+
+select {
+  -webkit-appearance: none;
+}
